@@ -14,11 +14,12 @@ import (
 
 // Server API 服务器
 type Server struct {
-	cfg       *config.Config
-	router    *gin.Engine
-	http      *http.Server
-	cfService *services.CloudflareService
-	wsHub     *websocket.Hub
+	cfg        *config.Config
+	router     *gin.Engine
+	http       *http.Server
+	cfService  *services.CloudflareService
+	wsHub      *websocket.Hub
+	acmeService *services.ACMEService
 }
 
 // NewServer 创建新的 API 服务器
@@ -36,11 +37,14 @@ func NewServer(cfg *config.Config) *Server {
 	wsHub := websocket.NewHub()
 	go wsHub.Run()
 
+	acmeService := services.NewACMEService(cfg)
+
 	server := &Server{
-		cfg:       cfg,
-		router:    router,
-		cfService: services.NewCloudflareService(cfg.JWT.Secret),
-		wsHub:     wsHub,
+		cfg:         cfg,
+		router:      router,
+		cfService:   services.NewCloudflareService(cfg.JWT.Secret),
+		wsHub:       wsHub,
+		acmeService: acmeService,
 	}
 
 	// 注册路由
@@ -137,6 +141,14 @@ func (s *Server) registerRoutes() {
 			ws := protected.Group("/ws")
 			{
 				ws.GET("", s.handleWebSocket)
+			}
+
+			// 证书管理
+			certs := protected.Group("/certs")
+			{
+				certs.GET("/:domain", s.handleGetCert)
+				certs.POST("/:domain/renew", s.handleRenewCert)
+				certs.GET("/check", s.handleCheckCerts)
 			}
 		}
 

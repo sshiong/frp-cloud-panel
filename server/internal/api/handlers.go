@@ -1263,3 +1263,77 @@ func (s *Server) handleDeleteDNSRecord(c *gin.Context) {
 func (s *Server) handleWebSocket(c *gin.Context) {
 	s.wsHub.HandleWebSocket(c)
 }
+
+// handleGetCert 获取证书信息
+func (s *Server) handleGetCert(c *gin.Context) {
+	domain := c.Param("domain")
+
+	// 获取证书过期时间
+	expiry, err := s.acmeService.GetCertExpiry(domain)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	// 获取域名信息
+	var domainInfo models.Domain
+	if err := database.DB.Where("domain = ?", domain).First(&domainInfo).Error; err != nil {
+		notFound(c, "Domain not found")
+		return
+	}
+
+	success(c, gin.H{
+		"domain":     domain,
+		"https_mode": domainInfo.HTTPSMode,
+		"cert_status": domainInfo.CertStatus,
+		"cert_expiry": expiry,
+	})
+}
+
+// handleRenewCert 续期证书
+func (s *Server) handleRenewCert(c *gin.Context) {
+	domain := c.Param("domain")
+
+	// 检查域名是否存在
+	var domainInfo models.Domain
+	if err := database.DB.Where("domain = ?", domain).First(&domainInfo).Error; err != nil {
+		notFound(c, "Domain not found")
+		return
+	}
+
+	// 检查 HTTPS 模式
+	if domainInfo.HTTPSMode != "auto" {
+		badRequest(c, "Domain is not configured for auto HTTPS")
+		return
+	}
+
+	// 续期证书
+	if err := s.acmeService.RenewCertificate(domain); err != nil {
+		serverError(c, err)
+		return
+	}
+
+	// 记录审计日志
+	userID, _ := c.Get("user_id")
+	database.DB.Create(&models.AuditLog{
+		UserID:   userID.(uint),
+		Action:   "renew_cert",
+		Resource: "certificate",
+		Detail:   domain,
+		IP:       c.ClientIP(),
+	})
+
+	success(c, gin.H{
+		"message": "Certificate renewed successfully",
+	})
+}
+
+// handleCheckCerts 检查所有证书状态
+func (s *Server) handleCheckCerts(c *gin.Context) {
+	// 启动证书检查
+	go s.acmeService.CheckCertificates()
+
+	success(c, gin.H{
+		"message": "Certificate check started",
+	})
+}
