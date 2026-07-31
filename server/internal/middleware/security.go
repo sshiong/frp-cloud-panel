@@ -57,8 +57,11 @@ func SecurityMiddleware(config *SecurityConfig) gin.HandlerFunc {
 		// CSP 头部
 		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';")
 
-		// CSRF 防护
-		if config.CSRFEnabled && c.Request.Method != "GET" && c.Request.Method != "HEAD" && c.Request.Method != "OPTIONS" {
+		// CSRF 防护（排除登录和注册端点）
+		path := c.Request.URL.Path
+		isAuthEndpoint := path == "/api/v1/auth/login" || path == "/api/v1/auth/register"
+
+		if config.CSRFEnabled && !isAuthEndpoint && c.Request.Method != "GET" && c.Request.Method != "HEAD" && c.Request.Method != "OPTIONS" {
 			csrfToken := c.GetHeader("X-CSRF-Token")
 			if csrfToken == "" {
 				c.JSON(http.StatusForbidden, gin.H{

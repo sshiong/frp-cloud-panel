@@ -91,6 +91,13 @@ func (s *Server) registerRoutes() {
 	// API v1
 	v1 := s.router.Group("/api/v1")
 	{
+		// 健康检查
+		v1.GET("/health", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{
+				"status": "ok",
+			})
+		})
+
 		// 认证相关
 		auth := v1.Group("/auth")
 		{

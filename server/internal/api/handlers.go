@@ -7,6 +7,7 @@ import (
 	"github.com/frp-cloud-panel/server/internal/database"
 	"github.com/frp-cloud-panel/server/internal/middleware"
 	"github.com/frp-cloud-panel/server/internal/models"
+	"github.com/frp-cloud-panel/server/internal/services"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
