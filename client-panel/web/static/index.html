@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FRP Client Panel</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f7fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #409eff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .card {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 12px 0 rgba(0,0,0,.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #303133;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #ebeef5;
+        }
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        .status-label {
+            color: #606266;
+        }
+        .status-value {
+            font-weight: bold;
+            color: #303133;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: all .3s;
+        }
+        .btn-primary {
+            background-color: #409eff;
+            border-color: #409eff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #66b1ff;
+            border-color: #66b1ff;
+        }
+        .btn-success {
+            background-color: #67c23a;
+            border-color: #67c23a;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #85ce61;
+            border-color: #85ce61;
+        }
+        .btn-danger {
+            background-color: #f56c6c;
+            border-color: #f56c6c;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #f78989;
+            border-color: #f78989;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .mapping-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .mapping-table th,
+        .mapping-table td {
+            padding: 12px 10px;
+            text-align: left;
+            border-bottom: 1px solid #ebeef5;
+        }
+        .mapping-table th {
+            background-color: #fafafa;
+            font-weight: bold;
+            color: #909399;
+        }
+        .tag {
+            display: inline-block;
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            color: white;
+        }
+        .tag-success {
+            background-color: #67c23a;
+        }
+        .tag-warning {
+            background-color: #e6a23c;
+        }
+        .tag-danger {
+            background-color: #f56c6c;
+        }
+        .tag-info {
+            background-color: #909399;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #606266;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #409eff;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 4px;
+            padding: 20px;
+            width: 500px;
+            max-width: 90%;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #303133;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>FRP Client Panel</h1>
+            <p>用户面板 - 管理您的 FRP 映射</p>
+        </div>
+
+        <div class="card">
+            <div class="card-title">设备状态</div>
+            <div class="status-item">
+                <span class="status-label">设备名称</span>
+                <span class="status-value" id="deviceName">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">客户端ID</span>
+                <span class="status-value" id="clientId">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">服务端地址</span>
+                <span class="status-value" id="serverAddr">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">FRPC 状态</span>
+                <span class="status-value" id="frpcStatus">-</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">快速操作</div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="syncConfig()">同步配置</button>
+                <button class="btn btn-success" onclick="startFRPC()">启动 FRPC</button>
+                <button class="btn btn-danger" onclick="stopFRPC()">停止 FRPC</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">我的映射</div>
+            <table class="mapping-table">
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>类型</th>
+                        <th>本地IP</th>
+                        <th>本地端口</th>
+                        <th>远程端口</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody id="mappingsList">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="card-title">设备注册</div>
+            <div class="form-group">
+                <label>服务端地址</label>
+                <input type="text" id="regServerAddr" placeholder="http://localhost:8080">
+            </div>
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="regUsername" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="regPassword" placeholder="请输入密码">
+            </div>
+            <div class="form-group">
+                <label>设备名称</label>
+                <input type="text" id="regDeviceName" placeholder="请输入设备名称">
+            </div>
+            <button class="btn btn-primary" onclick="register()">注册设备</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus"></script>
+    <script>
+        // API 基础路径
+        const API_BASE = '/api/local';
+
+        // 加载状态
+        async function loadStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    document.getElementById('deviceName').textContent = data.data.device_name || '-';
+                    document.getElementById('clientId').textContent = data.data.client_id || '-';
+                    document.getElementById('serverAddr').textContent = data.data.server_addr || '-';
+                    document.getElementById('frpcStatus').textContent = data.data.frpc_running ? '运行中' : '已停止';
+                    document.getElementById('frpcStatus').style.color = data.data.frpc_running ? '#67c23a' : '#f56c6c';
+                }
+            } catch (error) {
+                console.error('Failed to load status:', error);
+            }
+        }
+
+        // 同步配置
+        async function syncConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/config/sync`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    alert('配置同步成功');
+                    loadStatus();
+                } else {
+                    alert('配置同步失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('配置同步失败: ' + error.message);
+            }
+        }
+
+        // 启动 FRPC
+        async function startFRPC() {
+            try {
+                const response = await fetch(`${API_BASE}/frpc/start`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    alert('FRPC 启动成功');
+                    loadStatus();
+                } else {
+                    alert('FRPC 启动失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('FRPC 启动失败: ' + error.message);
+            }
+        }
+
+        // 停止 FRPC
+        async function stopFRPC() {
+            try {
+                const response = await fetch(`${API_BASE}/frpc/stop`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    alert('FRPC 停止成功');
+                    loadStatus();
+                } else {
+                    alert('FRPC 停止失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('FRPC 停止失败: ' + error.message);
+            }
+        }
+
+        // 注册设备
+        async function register() {
+            const serverAddr = document.getElementById('regServerAddr').value;
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            const deviceName = document.getElementById('regDeviceName').value;
+
+            if (!serverAddr || !username || !password || !deviceName) {
+                alert('请填写所有字段');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        server_addr: serverAddr,
+                        username: username,
+                        password: password,
+                        device_name: deviceName
+                    })
+                });
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    alert('设备注册成功');
+                    loadStatus();
+                } else {
+                    alert('设备注册失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('设备注册失败: ' + error.message);
+            }
+        }
+
+        // 加载映射列表
+        async function loadMappings() {
+            try {
+                const response = await fetch(`${API_BASE}/config`);
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    const mappings = data.data.mappings || [];
+                    const tbody = document.getElementById('mappingsList');
+                    tbody.innerHTML = mappings.map(m => `
+                        <tr>
+                            <td>${m.name}</td>
+                            <td>${m.type}</td>
+                            <td>${m.local_ip}</td>
+                            <td>${m.local_port}</td>
+                            <td>${m.remote_port}</td>
+                            <td><span class="tag tag-${getStatusType(m.status)}">${getStatusText(m.status)}</span></td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Failed to load mappings:', error);
+            }
+        }
+
+        // 获取状态类型
+        function getStatusType(status) {
+            const map = {
+                'running': 'success',
+                'pending_apply': 'warning',
+                'offline': 'info',
+                'config_error': 'danger'
+            };
+            return map[status] || 'info';
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            const map = {
+                'running': '运行中',
+                'pending_apply': '待应用',
+                'offline': '离线',
+                'config_error': '配置错误'
+            };
+            return map[status] || status;
+        }
+
+        // 页面加载时获取状态
+        window.onload = function() {
+            loadStatus();
+            loadMappings();
+        };
+    </script>
+</body>
+</html>

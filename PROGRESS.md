@@ -149,10 +149,11 @@ FRP 多用户云隧道管理平台（双面板架构增强版）
 - [x] 服务端正常运行 (http://localhost:8080)
 - [x] Server Panel 正常运行 (http://localhost:3000)
 - [x] Client Panel 正常运行 (http://localhost:3001)
-- [x] API 代理正常工作
+- [x] Client Panel 本地 API 正常工作
+- [x] Client Panel 可以与 Server Panel 通信
+- [x] 双面板架构正确实现
 - [x] 登录功能正常
 - [x] 用户信息获取正常
-- [x] 双面板架构实现完成
 
 ### 已完成的所有功能
 - [x] FRPS 鉴权集成

@@ -6,8 +6,22 @@ FRP 多用户云隧道管理平台（双面板架构增强版）
 
 这是一个基于 FRP (Fast Reverse Proxy) 的多用户云隧道管理平台，采用双面板架构：
 
-- **Server Panel**: 部署在 FRPS 服务器，负责全局控制、安全、资源仲裁
-- **Client Panel**: 用户侧本地服务，负责 Web 面板、本地 FRPC 管理和状态采集
+### Server Panel（服务端面板）
+- **部署位置**: FRPS 服务器
+- **职责**: 全局控制、安全、资源仲裁
+- **功能**: 管理员 Web 面板、控制 API、用户权限管理、全局资源管理
+- **URL**: http://localhost:3000
+
+### Client Panel（客户端面板）
+- **部署位置**: 用户本地机器
+- **职责**: 本地 FRPC 管理和状态采集
+- **功能**: 用户 Web 面板、**本地 API**、FRPC 进程管理、状态采集
+- **URL**: http://localhost:3001
+
+**关键架构特点**:
+- Client Panel 是**完整本地服务**，有自己的本地 API
+- Client Panel 通过 API 客户端与 Server Panel 通信
+- 两者独立部署，独立运行
 
 ## 技术栈
 
@@ -62,8 +76,9 @@ Server Panel 将在 `http://localhost:3000` 启动。
 
 ```bash
 cd client-panel
-npm install
-npm run dev
+go mod tidy
+go build -o bin/client-panel .
+./bin/client-panel
 ```
 
 Client Panel 将在 `http://localhost:3001` 启动。
@@ -76,6 +91,13 @@ Client Panel 将在 `http://localhost:3001` 启动。
 默认管理员账号：
 - 用户名: `admin`
 - 密码: `password`
+
+### 6. 注册设备
+
+首次使用 Client Panel 时，需要注册设备：
+1. 访问 http://localhost:3001
+2. 填写服务端地址、用户名、密码、设备名称
+3. 点击"注册设备"按钮
 
 ## 功能特性
 
