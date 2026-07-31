@@ -1,7 +1,6 @@
 package api
 
 import (
-	"net/http"
 	"strconv"
 	"time"
 
@@ -430,10 +429,10 @@ func (s *Server) handleCreateMapping(c *gin.Context) {
 		return
 	}
 
-	// 检查客户端是否存在
+	// 获取用户的第一个客户端
 	var client models.Client
-	if err := database.DB.Where("id = ? AND user_id = ?", req.LocalIP, userID).First(&client).Error; err != nil {
-		badRequest(c, "Client not found")
+	if err := database.DB.Where("user_id = ?", userID).First(&client).Error; err != nil {
+		badRequest(c, "No client found for this user")
 		return
 	}
 

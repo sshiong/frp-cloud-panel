@@ -1,15 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/frp-cloud-panel/server/internal/api"
 	"github.com/frp-cloud-panel/server/internal/config"
 	"github.com/frp-cloud-panel/server/internal/database"
-	"github.com/frp-cloud-panel/server/internal/api"
 )
 
 func main() {
