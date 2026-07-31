@@ -48,19 +48,30 @@ go build -o bin/server ./cmd/server
 
 服务端将在 `http://localhost:8080` 启动。
 
-### 3. 启动前端
+### 3. 启动 Server Panel（管理员面板）
 
 ```bash
-cd frontend
+cd server-panel
 npm install
 npm run dev
 ```
 
-前端将在 `http://localhost:3000` 启动。
+Server Panel 将在 `http://localhost:3000` 启动。
 
-### 4. 访问系统
+### 4. 启动 Client Panel（用户面板）
 
-打开浏览器访问 `http://localhost:3000`
+```bash
+cd client-panel
+npm install
+npm run dev
+```
+
+Client Panel 将在 `http://localhost:3001` 启动。
+
+### 5. 访问系统
+
+- **Server Panel（管理员）**: http://localhost:3000
+- **Client Panel（用户）**: http://localhost:3001
 
 默认管理员账号：
 - 用户名: `admin`
