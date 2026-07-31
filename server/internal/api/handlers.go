@@ -796,27 +796,10 @@ func (s *Server) handleSetCFToken(c *gin.Context) {
 		return
 	}
 
-	// TODO: 加密 Token
-	// TODO: 验证 Token
-
-	// 保存或更新 Token
-	var cfToken models.CloudflareToken
-	if err := database.DB.Where("user_id = ?", userID).First(&cfToken).Error; err != nil {
-		// 创建新的
-		cfToken = models.CloudflareToken{
-			UserID: userID.(uint),
-			Token:  req.Token, // TODO: 加密
-			Nonce:  "",        // TODO: 生成 nonce
-			Email:  req.Email,
-			Status: "active",
-		}
-		database.DB.Create(&cfToken)
-	} else {
-		// 更新现有的
-		cfToken.Token = req.Token // TODO: 加密
-		cfToken.Email = req.Email
-		cfToken.Status = "active"
-		database.DB.Save(&cfToken)
+	// 保存 Token（加密）
+	if err := s.cfService.SaveToken(userID.(uint), req.Token, req.Email); err != nil {
+		serverError(c, err)
+		return
 	}
 
 	// 记录审计日志
@@ -836,8 +819,8 @@ func (s *Server) handleSetCFToken(c *gin.Context) {
 func (s *Server) handleGetCFTokenStatus(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
-	var cfToken models.CloudflareToken
-	if err := database.DB.Where("user_id = ?", userID).First(&cfToken).Error; err != nil {
+	cfToken, err := s.cfService.GetTokenStatus(userID.(uint))
+	if err != nil {
 		success(c, gin.H{
 			"status": "not_set",
 		})
@@ -855,13 +838,11 @@ func (s *Server) handleGetCFTokenStatus(c *gin.Context) {
 func (s *Server) handleDeleteCFToken(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
-	var cfToken models.CloudflareToken
-	if err := database.DB.Where("user_id = ?", userID).First(&cfToken).Error; err != nil {
+	// 删除 Token
+	if err := s.cfService.DeleteToken(userID.(uint)); err != nil {
 		notFound(c, "Cloudflare token not found")
 		return
 	}
-
-	database.DB.Delete(&cfToken)
 
 	// 记录审计日志
 	database.DB.Create(&models.AuditLog{
@@ -880,18 +861,24 @@ func (s *Server) handleDeleteCFToken(c *gin.Context) {
 func (s *Server) handleTestCFToken(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
-	var cfToken models.CloudflareToken
-	if err := database.DB.Where("user_id = ?", userID).First(&cfToken).Error; err != nil {
-		notFound(c, "Cloudflare token not found")
+	// 测试 Token
+	valid, err := s.cfService.TestToken(userID.(uint))
+	if err != nil {
+		badRequest(c, "Failed to test token: "+err.Error())
 		return
 	}
 
-	// TODO: 实际测试 Token
-
-	success(c, gin.H{
-		"status":  "valid",
-		"message": "Token is valid",
-	})
+	if valid {
+		success(c, gin.H{
+			"status":  "valid",
+			"message": "Token is valid",
+		})
+	} else {
+		success(c, gin.H{
+			"status":  "invalid",
+			"message": "Token is invalid",
+		})
+	}
 }
 
 // handleListLogs 获取日志列表
@@ -1155,4 +1142,124 @@ func (s *Server) handleHeartbeat(c *gin.Context) {
 func generateDeviceToken() string {
 	// TODO: 实现安全的 token 生成
 	return "device_token_" + strconv.FormatInt(time.Now().UnixNano(), 36)
+}
+
+// handleListDNSRecords 获取 DNS 记录列表
+func (s *Server) handleListDNSRecords(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	domain := c.Query("domain")
+
+	if domain == "" {
+		badRequest(c, "Domain parameter is required")
+		return
+	}
+
+	// 获取 DNS 记录
+	records, err := s.cfService.GetDNSRecords(userID.(uint), domain)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, records)
+}
+
+// CreateDNSRecordRequest 创建 DNS 记录请求
+type CreateDNSRecordRequest struct {
+	Domain string `json:"domain" binding:"required"`
+	IP     string `json:"ip" binding:"required"`
+}
+
+// handleCreateDNSRecord 创建 DNS 记录
+func (s *Server) handleCreateDNSRecord(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	var req CreateDNSRecordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 创建 DNS 记录
+	record, err := s.cfService.CreateDNSRecord(userID.(uint), req.Domain, req.IP)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	// 记录审计日志
+	database.DB.Create(&models.AuditLog{
+		UserID:   userID.(uint),
+		Action:   "create_dns_record",
+		Resource: "dns_record",
+		Detail:   req.Domain,
+		IP:       c.ClientIP(),
+	})
+
+	success(c, record)
+}
+
+// UpdateDNSRecordRequest 更新 DNS 记录请求
+type UpdateDNSRecordRequest struct {
+	IP string `json:"ip" binding:"required"`
+}
+
+// handleUpdateDNSRecord 更新 DNS 记录
+func (s *Server) handleUpdateDNSRecord(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	domain := c.Param("domain")
+
+	var req UpdateDNSRecordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 更新 DNS 记录
+	record, err := s.cfService.CreateDNSRecord(userID.(uint), domain, req.IP)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	// 记录审计日志
+	database.DB.Create(&models.AuditLog{
+		UserID:   userID.(uint),
+		Action:   "update_dns_record",
+		Resource: "dns_record",
+		Detail:   domain,
+		IP:       c.ClientIP(),
+	})
+
+	success(c, record)
+}
+
+// handleDeleteDNSRecord 删除 DNS 记录
+func (s *Server) handleDeleteDNSRecord(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	domain := c.Param("domain")
+
+	// 删除 DNS 记录
+	if err := s.cfService.DeleteDNSRecord(userID.(uint), domain); err != nil {
+		serverError(c, err)
+		return
+	}
+
+	// 记录审计日志
+	database.DB.Create(&models.AuditLog{
+		UserID:   userID.(uint),
+		Action:   "delete_dns_record",
+		Resource: "dns_record",
+		Detail:   domain,
+		IP:       c.ClientIP(),
+	})
+
+	success(c, gin.H{
+		"message": "DNS record deleted successfully",
+	})
+}
+
+// handleWebSocket 处理 WebSocket 连接
+func (s *Server) handleWebSocket(c *gin.Context) {
+	s.wsHub.HandleWebSocket(c)
 }

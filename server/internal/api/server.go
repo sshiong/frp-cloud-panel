@@ -7,14 +7,18 @@ import (
 
 	"github.com/frp-cloud-panel/server/internal/config"
 	"github.com/frp-cloud-panel/server/internal/middleware"
+	"github.com/frp-cloud-panel/server/internal/services"
+	"github.com/frp-cloud-panel/server/internal/websocket"
 	"github.com/gin-gonic/gin"
 )
 
 // Server API 服务器
 type Server struct {
-	cfg    *config.Config
-	router *gin.Engine
-	http   *http.Server
+	cfg       *config.Config
+	router    *gin.Engine
+	http      *http.Server
+	cfService *services.CloudflareService
+	wsHub     *websocket.Hub
 }
 
 // NewServer 创建新的 API 服务器
@@ -29,9 +33,14 @@ func NewServer(cfg *config.Config) *Server {
 	router.Use(gin.Recovery())
 	router.Use(corsMiddleware())
 
+	wsHub := websocket.NewHub()
+	go wsHub.Run()
+
 	server := &Server{
-		cfg:    cfg,
-		router: router,
+		cfg:       cfg,
+		router:    router,
+		cfService: services.NewCloudflareService(cfg.JWT.Secret),
+		wsHub:     wsHub,
 	}
 
 	// 注册路由
@@ -109,10 +118,25 @@ func (s *Server) registerRoutes() {
 				cf.POST("/token/test", s.handleTestCFToken)
 			}
 
+			// DNS 管理
+			dns := protected.Group("/dns")
+			{
+				dns.GET("/records", s.handleListDNSRecords)
+				dns.POST("/records", s.handleCreateDNSRecord)
+				dns.PUT("/records/:domain", s.handleUpdateDNSRecord)
+				dns.DELETE("/records/:domain", s.handleDeleteDNSRecord)
+			}
+
 			// 日志
 			logs := protected.Group("/logs")
 			{
 				logs.GET("", s.handleListLogs)
+			}
+
+			// WebSocket
+			ws := protected.Group("/ws")
+			{
+				ws.GET("", s.handleWebSocket)
 			}
 		}
 
