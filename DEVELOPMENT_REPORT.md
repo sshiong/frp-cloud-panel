@@ -52,6 +52,13 @@
 - 密码修改
 - Cloudflare Token 管理
 
+✅ **高级功能**
+- Cloudflare DNS 管理
+- ACME 证书管理
+- WebSocket 实时通信
+- 配置版本控制
+- 数据备份和恢复
+
 ### 2. 客户端 (Client Panel)
 ✅ **基础框架**
 - Go 模块初始化
