@@ -116,3 +116,14 @@ type ConfigVersion struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Client    Client    `json:"client" gorm:"foreignKey:ClientID"`
 }
+
+// LoginAttempt 登录尝试记录模型
+type LoginAttempt struct {
+	ID             uint      `json:"id" gorm:"primaryKey"`
+	UserID         uint      `json:"user_id" gorm:"index"`
+	FailedAttempts int       `json:"failed_attempts" gorm:"default:0"`
+	LastAttemptAt  time.Time `json:"last_attempt_at"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	User           User      `json:"user" gorm:"foreignKey:UserID"`
+}

@@ -67,6 +67,7 @@ func autoMigrate() error {
 		&models.CloudflareToken{},
 		&models.AuditLog{},
 		&models.ConfigVersion{},
+		&models.LoginAttempt{},
 	)
 }
 

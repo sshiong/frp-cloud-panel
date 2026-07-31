@@ -1545,3 +1545,158 @@ func (s *Server) handleDeleteBackup(c *gin.Context) {
 		"message": "Backup deleted successfully",
 	})
 }
+
+// handleFRPSLogin 处理 FRPS 登录验证
+func (s *Server) handleFRPSLogin(c *gin.Context) {
+	var req services.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 设置远程地址
+	req.RemoteAddr = c.ClientIP()
+
+	// 验证登录
+	resp, err := s.frpsAuthService.ValidateLogin(&req)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	if resp.Reject {
+		c.JSON(401, resp)
+		return
+	}
+
+	c.JSON(200, resp)
+}
+
+// handleFRPSNewProxy 处理 FRPS 新代理验证
+func (s *Server) handleFRPSNewProxy(c *gin.Context) {
+	var req services.NewProxyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 设置远程地址
+	req.RemoteAddr = c.ClientIP()
+
+	// 验证新代理
+	resp, err := s.frpsAuthService.ValidateNewProxy(&req)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	if resp.Reject {
+		c.JSON(403, resp)
+		return
+	}
+
+	c.JSON(200, resp)
+}
+
+// handleRouterStats 获取路由器统计信息
+func (s *Server) handleRouterStats(c *gin.Context) {
+	stats := s.httpRouter.GetStats()
+	success(c, stats)
+}
+
+// handleReloadCerts 重新加载证书
+func (s *Server) handleReloadCerts(c *gin.Context) {
+	s.httpRouter.ReloadCertificates()
+	success(c, gin.H{
+		"message": "Certificates reloaded successfully",
+	})
+}
+
+// handleClearRouterCache 清除路由器缓存
+func (s *Server) handleClearRouterCache(c *gin.Context) {
+	s.httpRouter.ClearProxyCache()
+	success(c, gin.H{
+		"message": "Router cache cleared successfully",
+	})
+}
+
+// handleGetSystemStats 获取系统统计
+func (s *Server) handleGetSystemStats(c *gin.Context) {
+	stats := s.monitoringService.GetSystemStats()
+	success(c, stats)
+}
+
+// handleGetAlerts 获取告警列表
+func (s *Server) handleGetAlerts(c *gin.Context) {
+	resolved := c.Query("resolved") == "true"
+	alerts := s.monitoringService.GetAlerts(resolved)
+	success(c, alerts)
+}
+
+// handleResolveAlert 解决告警
+func (s *Server) handleResolveAlert(c *gin.Context) {
+	alertID := c.Param("id")
+
+	if err := s.monitoringService.ResolveAlert(alertID); err != nil {
+		notFound(c, "Alert not found")
+		return
+	}
+
+	success(c, gin.H{
+		"message": "Alert resolved successfully",
+	})
+}
+
+// handleGetAlertRules 获取告警规则列表
+func (s *Server) handleGetAlertRules(c *gin.Context) {
+	rules := s.monitoringService.GetAlertRules()
+	success(c, rules)
+}
+
+// handleAddAlertRule 添加告警规则
+func (s *Server) handleAddAlertRule(c *gin.Context) {
+	var rule services.AlertRule
+	if err := c.ShouldBindJSON(&rule); err != nil {
+		badRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	s.monitoringService.AddAlertRule(rule)
+	success(c, gin.H{
+		"message": "Alert rule added successfully",
+	})
+}
+
+// handleUpdateAlertRule 更新告警规则
+func (s *Server) handleUpdateAlertRule(c *gin.Context) {
+	ruleID := c.Param("id")
+
+	var rule services.AlertRule
+	if err := c.ShouldBindJSON(&rule); err != nil {
+		badRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := s.monitoringService.UpdateAlertRule(ruleID, rule); err != nil {
+		notFound(c, "Alert rule not found")
+		return
+	}
+
+	success(c, gin.H{
+		"message": "Alert rule updated successfully",
+	})
+}
+
+// handleDeleteAlertRule 删除告警规则
+func (s *Server) handleDeleteAlertRule(c *gin.Context) {
+	ruleID := c.Param("id")
+
+	if err := s.monitoringService.DeleteAlertRule(ruleID); err != nil {
+		notFound(c, "Alert rule not found")
+		return
+	}
+
+	success(c, gin.H{
+		"message": "Alert rule deleted successfully",
+	})
+}

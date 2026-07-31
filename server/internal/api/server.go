@@ -14,14 +14,17 @@ import (
 
 // Server API 服务器
 type Server struct {
-	cfg           *config.Config
-	router        *gin.Engine
-	http          *http.Server
-	cfService     *services.CloudflareService
-	wsHub         *websocket.Hub
-	acmeService   *services.ACMEService
-	configService *services.ConfigService
-	backupService *services.BackupService
+	cfg              *config.Config
+	router           *gin.Engine
+	http             *http.Server
+	cfService        *services.CloudflareService
+	wsHub            *websocket.Hub
+	acmeService      *services.ACMEService
+	configService    *services.ConfigService
+	backupService    *services.BackupService
+	frpsAuthService  *services.FRPSAuthService
+	httpRouter       *services.HTTPRouter
+	monitoringService *services.MonitoringService
 }
 
 // NewServer 创建新的 API 服务器
@@ -31,10 +34,21 @@ func NewServer(cfg *config.Config) *Server {
 
 	router := gin.New()
 
-	// 添加中间件
+	// 添加基础中间件
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 	router.Use(corsMiddleware())
+
+	// 添加安全中间件
+	securityConfig := middleware.DefaultSecurityConfig()
+	router.Use(middleware.SecurityMiddleware(securityConfig))
+	router.Use(middleware.SQLInjectionMiddleware())
+	router.Use(middleware.XSSMiddleware())
+	router.Use(middleware.InputValidationMiddleware())
+
+	// 添加限流中间件
+	rateLimiter := middleware.NewRateLimiter(100, 200) // 每分钟100请求，突发200
+	router.Use(middleware.RateLimitMiddleware(rateLimiter))
 
 	wsHub := websocket.NewHub()
 	go wsHub.Run()
@@ -42,15 +56,21 @@ func NewServer(cfg *config.Config) *Server {
 	acmeService := services.NewACMEService(cfg)
 	configService := services.NewConfigService(wsHub)
 	backupService := services.NewBackupService(cfg.JWT.Secret)
+	frpsAuthService := services.NewFRPSAuthService()
+	httpRouter := services.NewHTTPRouter("./data/certs")
+	monitoringService := services.NewMonitoringService()
 
 	server := &Server{
-		cfg:           cfg,
-		router:        router,
-		cfService:     services.NewCloudflareService(cfg.JWT.Secret),
-		wsHub:         wsHub,
-		acmeService:   acmeService,
-		configService: configService,
-		backupService: backupService,
+		cfg:               cfg,
+		router:            router,
+		cfService:         services.NewCloudflareService(cfg.JWT.Secret),
+		wsHub:             wsHub,
+		acmeService:       acmeService,
+		configService:     configService,
+		backupService:     backupService,
+		frpsAuthService:   frpsAuthService,
+		httpRouter:        httpRouter,
+		monitoringService: monitoringService,
 	}
 
 	// 注册路由
@@ -189,6 +209,33 @@ func (s *Server) registerRoutes() {
 			client.POST("/config/apply", s.handleApplyConfig)
 			client.POST("/status", s.handleUpdateStatus)
 			client.POST("/heartbeat", s.handleHeartbeat)
+		}
+
+		// FRPS 鉴权 API (内部使用)
+		frps := v1.Group("/frps")
+		{
+			frps.POST("/login", s.handleFRPSLogin)
+			frps.POST("/new-proxy", s.handleFRPSNewProxy)
+		}
+
+		// HTTP Router 管理
+		routerGroup := protected.Group("/router")
+		{
+			routerGroup.GET("/stats", s.handleRouterStats)
+			routerGroup.POST("/reload-certs", s.handleReloadCerts)
+			routerGroup.POST("/clear-cache", s.handleClearRouterCache)
+		}
+
+		// 系统监控
+		monitoring := protected.Group("/monitoring")
+		{
+			monitoring.GET("/stats", s.handleGetSystemStats)
+			monitoring.GET("/alerts", s.handleGetAlerts)
+			monitoring.POST("/alerts/:id/resolve", s.handleResolveAlert)
+			monitoring.GET("/rules", s.handleGetAlertRules)
+			monitoring.POST("/rules", s.handleAddAlertRule)
+			monitoring.PUT("/rules/:id", s.handleUpdateAlertRule)
+			monitoring.DELETE("/rules/:id", s.handleDeleteAlertRule)
 		}
 	}
 }

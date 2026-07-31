@@ -31,6 +31,36 @@
           <el-icon><Setting /></el-icon>
           <span>系统设置</span>
         </el-menu-item>
+        <el-sub-menu index="advanced">
+          <template #title>
+            <el-icon><More /></el-icon>
+            <span>高级功能</span>
+          </template>
+          <el-menu-item index="/audit-logs">
+            <el-icon><Document /></el-icon>
+            <span>审计日志</span>
+          </el-menu-item>
+          <el-menu-item index="/backups">
+            <el-icon><FolderOpened /></el-icon>
+            <span>备份管理</span>
+          </el-menu-item>
+          <el-menu-item index="/certificates">
+            <el-icon><Lock /></el-icon>
+            <span>证书管理</span>
+          </el-menu-item>
+          <el-menu-item index="/dns-records">
+            <el-icon><Link /></el-icon>
+            <span>DNS记录</span>
+          </el-menu-item>
+          <el-menu-item index="/monitoring">
+            <el-icon><DataLine /></el-icon>
+            <span>系统监控</span>
+          </el-menu-item>
+          <el-menu-item index="/users">
+            <el-icon><User /></el-icon>
+            <span>用户管理</span>
+          </el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
