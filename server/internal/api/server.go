@@ -14,12 +14,13 @@ import (
 
 // Server API 服务器
 type Server struct {
-	cfg        *config.Config
-	router     *gin.Engine
-	http       *http.Server
-	cfService  *services.CloudflareService
-	wsHub      *websocket.Hub
-	acmeService *services.ACMEService
+	cfg          *config.Config
+	router       *gin.Engine
+	http         *http.Server
+	cfService    *services.CloudflareService
+	wsHub        *websocket.Hub
+	acmeService  *services.ACMEService
+	configService *services.ConfigService
 }
 
 // NewServer 创建新的 API 服务器
@@ -38,13 +39,15 @@ func NewServer(cfg *config.Config) *Server {
 	go wsHub.Run()
 
 	acmeService := services.NewACMEService(cfg)
+	configService := services.NewConfigService(wsHub)
 
 	server := &Server{
-		cfg:         cfg,
-		router:      router,
-		cfService:   services.NewCloudflareService(cfg.JWT.Secret),
-		wsHub:       wsHub,
-		acmeService: acmeService,
+		cfg:           cfg,
+		router:        router,
+		cfService:     services.NewCloudflareService(cfg.JWT.Secret),
+		wsHub:         wsHub,
+		acmeService:   acmeService,
+		configService: configService,
 	}
 
 	// 注册路由
@@ -149,6 +152,19 @@ func (s *Server) registerRoutes() {
 				certs.GET("/:domain", s.handleGetCert)
 				certs.POST("/:domain/renew", s.handleRenewCert)
 				certs.GET("/check", s.handleCheckCerts)
+			}
+
+			// 配置管理
+			config := protected.Group("/config")
+			{
+				config.GET("/version/:client_id", s.handleGetConfigVersion)
+				config.GET("/desired/:client_id", s.handleGetDesiredConfig)
+				config.POST("/apply/:client_id", s.handleApplyConfig)
+				config.GET("/sync/:client_id", s.handleCheckConfigSync)
+				config.POST("/sync/:client_id", s.handleSyncConfig)
+				config.GET("/export/:client_id", s.handleExportConfig)
+				config.POST("/import/:client_id", s.handleImportConfig)
+				config.GET("/frpc/:client_id", s.handleGenerateFRPCConfig)
 			}
 		}
 

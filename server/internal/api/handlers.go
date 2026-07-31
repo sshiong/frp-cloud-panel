@@ -1021,45 +1021,6 @@ func (s *Server) handleGetClientConfig(c *gin.Context) {
 	})
 }
 
-// handleApplyConfig 应用配置
-func (s *Server) handleApplyConfig(c *gin.Context) {
-	clientID, _ := c.Get("client_id")
-
-	var req struct {
-		Version int    `json:"version" binding:"required"`
-		Status  string `json:"status" binding:"required"`
-		Error   string `json:"error"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		badRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-
-	var client models.Client
-	if err := database.DB.Where("client_id = ?", clientID).First(&client).Error; err != nil {
-		notFound(c, "Client not found")
-		return
-	}
-
-	// 更新映射状态
-	var mappings []models.ProxyMapping
-	database.DB.Where("client_id = ?", client.ID).Find(&mappings)
-
-	for i := range mappings {
-		mappings[i].AppliedConfigVersion = req.Version
-		if req.Status == "success" {
-			mappings[i].Status = "running"
-		} else {
-			mappings[i].Status = "config_error"
-		}
-		database.DB.Save(&mappings[i])
-	}
-
-	success(c, gin.H{
-		"message": "Config applied successfully",
-	})
-}
-
 // handleUpdateStatus 更新状态
 func (s *Server) handleUpdateStatus(c *gin.Context) {
 	clientID, _ := c.Get("client_id")
@@ -1336,4 +1297,175 @@ func (s *Server) handleCheckCerts(c *gin.Context) {
 	success(c, gin.H{
 		"message": "Certificate check started",
 	})
+}
+
+// handleGetConfigVersion 获取配置版本
+func (s *Server) handleGetConfigVersion(c *gin.Context) {
+	clientIDStr := c.Param("client_id")
+	clientID, err := strconv.ParseUint(clientIDStr, 10, 32)
+	if err != nil {
+		badRequest(c, "Invalid client ID")
+		return
+	}
+
+	version, err := s.configService.GetConfigVersion(uint(clientID))
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, gin.H{
+		"client_id": clientID,
+		"version":   version,
+	})
+}
+
+// handleGetDesiredConfig 获取期望配置
+func (s *Server) handleGetDesiredConfig(c *gin.Context) {
+	clientIDStr := c.Param("client_id")
+	clientID, err := strconv.ParseUint(clientIDStr, 10, 32)
+	if err != nil {
+		badRequest(c, "Invalid client ID")
+		return
+	}
+
+	config, err := s.configService.GetDesiredConfig(uint(clientID))
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, config)
+}
+
+// handleApplyConfig 应用配置
+func (s *Server) handleApplyConfig(c *gin.Context) {
+	clientIDStr := c.Param("client_id")
+	clientID, err := strconv.ParseUint(clientIDStr, 10, 32)
+	if err != nil {
+		badRequest(c, "Invalid client ID")
+		return
+	}
+
+	var req struct {
+		Version int    `json:"version" binding:"required"`
+		Status  string `json:"status" binding:"required"`
+		Error   string `json:"error"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := s.configService.ApplyConfig(uint(clientID), req.Version, req.Status, req.Error); err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, gin.H{
+		"message": "Config applied successfully",
+	})
+}
+
+// handleCheckConfigSync 检查配置同步状态
+func (s *Server) handleCheckConfigSync(c *gin.Context) {
+	clientIDStr := c.Param("client_id")
+	clientID, err := strconv.ParseUint(clientIDStr, 10, 32)
+	if err != nil {
+		badRequest(c, "Invalid client ID")
+		return
+	}
+
+	needSync, err := s.configService.CheckConfigSync(uint(clientID))
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, gin.H{
+		"client_id": clientID,
+		"need_sync": needSync,
+	})
+}
+
+// handleSyncConfig 同步配置
+func (s *Server) handleSyncConfig(c *gin.Context) {
+	clientIDStr := c.Param("client_id")
+	clientID, err := strconv.ParseUint(clientIDStr, 10, 32)
+	if err != nil {
+		badRequest(c, "Invalid client ID")
+		return
+	}
+
+	if err := s.configService.SyncConfig(uint(clientID)); err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, gin.H{
+		"message": "Config sync initiated",
+	})
+}
+
+// handleExportConfig 导出配置
+func (s *Server) handleExportConfig(c *gin.Context) {
+	clientIDStr := c.Param("client_id")
+	clientID, err := strconv.ParseUint(clientIDStr, 10, 32)
+	if err != nil {
+		badRequest(c, "Invalid client ID")
+		return
+	}
+
+	data, err := s.configService.ExportConfig(uint(clientID))
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	c.Header("Content-Disposition", "attachment; filename=config.json")
+	c.Data(200, "application/json", data)
+}
+
+// handleImportConfig 导入配置
+func (s *Server) handleImportConfig(c *gin.Context) {
+	clientIDStr := c.Param("client_id")
+	clientID, err := strconv.ParseUint(clientIDStr, 10, 32)
+	if err != nil {
+		badRequest(c, "Invalid client ID")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		badRequest(c, "Failed to read request body")
+		return
+	}
+
+	if err := s.configService.ImportConfig(uint(clientID), data); err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, gin.H{
+		"message": "Config imported successfully",
+	})
+}
+
+// handleGenerateFRPCConfig 生成 FRPC 配置文件
+func (s *Server) handleGenerateFRPCConfig(c *gin.Context) {
+	clientIDStr := c.Param("client_id")
+	clientID, err := strconv.ParseUint(clientIDStr, 10, 32)
+	if err != nil {
+		badRequest(c, "Invalid client ID")
+		return
+	}
+
+	config, err := s.configService.GenerateFRPCConfig(uint(clientID))
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	c.Header("Content-Disposition", "attachment; filename=frpc.toml")
+	c.Data(200, "text/plain", []byte(config))
 }
