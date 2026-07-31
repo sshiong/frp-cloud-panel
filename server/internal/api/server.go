@@ -14,13 +14,14 @@ import (
 
 // Server API 服务器
 type Server struct {
-	cfg          *config.Config
-	router       *gin.Engine
-	http         *http.Server
-	cfService    *services.CloudflareService
-	wsHub        *websocket.Hub
-	acmeService  *services.ACMEService
+	cfg           *config.Config
+	router        *gin.Engine
+	http          *http.Server
+	cfService     *services.CloudflareService
+	wsHub         *websocket.Hub
+	acmeService   *services.ACMEService
 	configService *services.ConfigService
+	backupService *services.BackupService
 }
 
 // NewServer 创建新的 API 服务器
@@ -40,6 +41,7 @@ func NewServer(cfg *config.Config) *Server {
 
 	acmeService := services.NewACMEService(cfg)
 	configService := services.NewConfigService(wsHub)
+	backupService := services.NewBackupService(cfg.JWT.Secret)
 
 	server := &Server{
 		cfg:           cfg,
@@ -48,6 +50,7 @@ func NewServer(cfg *config.Config) *Server {
 		wsHub:         wsHub,
 		acmeService:   acmeService,
 		configService: configService,
+		backupService: backupService,
 	}
 
 	// 注册路由
@@ -165,6 +168,15 @@ func (s *Server) registerRoutes() {
 				config.GET("/export/:client_id", s.handleExportConfig)
 				config.POST("/import/:client_id", s.handleImportConfig)
 				config.GET("/frpc/:client_id", s.handleGenerateFRPCConfig)
+			}
+
+			// 备份管理
+			backup := protected.Group("/backup")
+			{
+				backup.POST("/create", s.handleCreateBackup)
+				backup.POST("/restore", s.handleRestoreBackup)
+				backup.GET("/list", s.handleListBackups)
+				backup.DELETE("/:filename", s.handleDeleteBackup)
 			}
 		}
 

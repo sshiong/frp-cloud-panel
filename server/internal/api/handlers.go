@@ -1469,3 +1469,79 @@ func (s *Server) handleGenerateFRPCConfig(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename=frpc.toml")
 	c.Data(200, "text/plain", []byte(config))
 }
+
+// CreateBackupRequest 创建备份请求
+type CreateBackupRequest struct {
+	Password string `json:"password" binding:"required"`
+}
+
+// handleCreateBackup 创建备份
+func (s *Server) handleCreateBackup(c *gin.Context) {
+	var req CreateBackupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 创建备份
+	filepath, err := s.backupService.CreateBackup(req.Password)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, gin.H{
+		"message":  "Backup created successfully",
+		"filepath": filepath,
+	})
+}
+
+// RestoreBackupRequest 恢复备份请求
+type RestoreBackupRequest struct {
+	Filepath string `json:"filepath" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// handleRestoreBackup 恢复备份
+func (s *Server) handleRestoreBackup(c *gin.Context) {
+	var req RestoreBackupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 恢复备份
+	if err := s.backupService.RestoreBackup(req.Filepath, req.Password); err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, gin.H{
+		"message": "Backup restored successfully",
+	})
+}
+
+// handleListBackups 列出备份
+func (s *Server) handleListBackups(c *gin.Context) {
+	backups, err := s.backupService.ListBackups()
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, backups)
+}
+
+// handleDeleteBackup 删除备份
+func (s *Server) handleDeleteBackup(c *gin.Context) {
+	filename := c.Param("filename")
+
+	if err := s.backupService.DeleteBackup(filename); err != nil {
+		serverError(c, err)
+		return
+	}
+
+	success(c, gin.H{
+		"message": "Backup deleted successfully",
+	})
+}
